@@ -92,7 +92,7 @@ def extract_receipt_with_gemini(pil_image: Image.Image, key: str) -> dict:
     """
     
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="Gemini 2.5 Flash",
         contents=[pil_image, prompt],
         config=types.GenerateContentConfig(
             response_mime_type="application/json"
