@@ -5,8 +5,7 @@ from io import BytesIO
 from PIL import Image
 import pandas as pd
 import streamlit as st
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 
 # Cấu hình giao diện Streamlit
 st.set_page_config(
@@ -63,7 +62,9 @@ with tab_upload:
 
 # --- HÀM XỬ LÝ AI ---
 def extract_receipt_with_gemini(pil_image: Image.Image, key: str) -> dict:
-    client = genai.Client(api_key=key)
+    clean_key = str(key).strip().strip('"').strip("'")
+    genai.configure(api_key=clean_key)
+    
     prompt = """
     Bạn là chuyên gia trích xuất dữ liệu chứng từ, hóa đơn và phiếu nhập kho tiếng Việt.
     Hãy phân tích kỹ hình ảnh và trích xuất dữ liệu thành định dạng JSON đúng cấu trúc sau:
@@ -91,13 +92,19 @@ def extract_receipt_with_gemini(pil_image: Image.Image, key: str) -> dict:
     - Nếu Thành tiền để trống, hãy tự tính: Số lượng * Đơn giá.
     """
     
-    response = client.models.generate_content(
-        model="Gemini 2.5 Flash",
-        contents=[pil_image, prompt],
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json"
+    # Sử dụng gemini-1.5-flash chuẩn hoá tương thích cao nhất
+    try:
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            generation_config={"response_mime_type": "application/json"}
         )
-    )
+        response = model.generate_content([pil_image, prompt])
+    except Exception:
+        model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            generation_config={"response_mime_type": "application/json"}
+        )
+        response = model.generate_content([pil_image, prompt])
     
     text = response.text.strip()
     # Loại bỏ code block markdown nếu có
