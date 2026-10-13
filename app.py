@@ -148,29 +148,97 @@ if "receipt_data" in st.session_state:
     )
 
     st.markdown("---")
-    st.subheader("📤 Xuất dữ liệu")
+    st.subheader("📤 Xuất & Chia sẻ dữ liệu")
 
     col_btn1, col_btn2 = st.columns(2)
 
-    # 1. Nút tải file Excel
+    # 1. Tạo dữ liệu file Excel
     excel_buffer = BytesIO()
     with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
         edited_df.to_excel(writer, index=False, sheet_name="PhieuNhapKho")
     excel_bytes = excel_buffer.getvalue()
-
     file_name = f"phieu_nhap_{so_phieu if so_phieu else 'kho'}.xlsx"
+
+    # Nút Tải file truyền thống
     col_btn1.download_button(
         label="📥 Tải file Excel (.xlsx)",
         data=excel_bytes,
         file_name=file_name,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        type="primary",
         use_container_width=True
     )
 
     # 2. Hỗ trợ copy thẳng vào Excel (TSV format)
     tsv_data = edited_df.to_csv(sep="\t", index=False)
     with col_btn2:
-        with st.popover("📋 Copy nhanh vào Excel", use_container_width=True):
-            st.caption("Bấm nút copy góc trên bên phải của ô bên dưới rồi dán (Ctrl+V) thẳng vào Excel:")
+        with st.popover("📋 Copy nhanh bảng", use_container_width=True):
+            st.caption("Bấm copy rồi dán (Ctrl+V) thẳng vào Excel:")
             st.code(tsv_data, language="text")
+
+    # 3. NÚT CHIA SẺ TRỰC TIẾP QUA ZALO / MOBILE APPS
+    import base64
+    b64_excel = base64.b64encode(excel_bytes).decode('utf-8')
+    
+    share_component = f"""
+    <div style="margin-top: 10px;">
+        <button id="shareBtn" style="
+            width: 100%;
+            background-color: #0068FF;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        ">
+            💬 Chia sẻ file qua Zalo / Ứng dụng
+        </button>
+        <p id="msg" style="text-align: center; color: gray; font-size: 13px; margin-top: 6px;"></p>
+    </div>
+
+    <script>
+    document.getElementById("shareBtn").addEventListener("click", async () => {{
+        const b64Data = "{b64_excel}";
+        const fileName = "{file_name}";
+        
+        try {{
+            // Chuyển base64 thành Blob File
+            const byteCharacters = atob(b64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {{
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }}
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], {{ type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }});
+            const file = new File([blob], fileName, {{ type: blob.type }});
+
+            // Kiểm tra hỗ trợ Web Share API (trên điện thoại iOS/Android)
+            if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
+                await navigator.share({{
+                    files: [file],
+                    title: "Phiếu nhập kho: " + "{so_phieu if so_phieu else ''}",
+                    text: "Gửi bạn file Excel phiếu nhập kho đã quét."
+                }});
+            }} else {{
+                // Nếu trên máy tính không hỗ trợ share file trực tiếp, tự động tải file xuống
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = fileName;
+                a.click();
+                document.getElementById("msg").innerText = "Đã tải file xuống máy của bạn.";
+            }}
+        }} catch (err) {{
+            if (err.name !== "AbortError") {{
+                document.getElementById("msg").innerText = "Vui lòng dùng nút Tải file ở trên.";
+            }}
+        }}
+    }});
+    </script>
+    """
+    st.components.v1.html(share_component, height=80)
