@@ -101,7 +101,7 @@ def extract_receipt_with_gemini(pil_image: Image.Image, key: str) -> dict:
         response = model.generate_content([pil_image, prompt])
     except Exception:
         model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
+            model_name="gemini-2.5-flash-lite",
             generation_config={"response_mime_type": "application/json"}
         )
         response = model.generate_content([pil_image, prompt])
